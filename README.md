@@ -2,7 +2,7 @@
 
 Fall 2026 · Topic 5 · Parts I–III: Data preparation, feature construction and chronological research design.
 
-We prepare a common U.S. security-month panel for predicting one-month-ahead corporate failure, following the economic logic of Campbell, Hilscher and Szilagyi (2008; CHS). This code supports the eight-predictor dynamic logit benchmark and expanded models with 37 additional Global Characteristics. Model estimation, evaluation and robustness analyses in Parts IV–VII are separate group contributions. **The Parts I–III pipeline has been run successfully on the supplied full dataset; the TA clarified the supplied target, timing and imputation conventions and permitted use of the premerged file on November 24, 2026. These clarifications do not change the executed pipeline.**
+We prepare a common U.S. security-month panel for predicting one-month-ahead corporate failure, following the economic logic of Campbell, Hilscher and Szilagyi (2008; CHS). This code supports the eight-predictor dynamic logit benchmark and expanded models with 37 additional Global Characteristics. The baseline notebook covers model estimation, evaluation, and two robustness checks. **The Parts I–III pipeline has been run successfully on the supplied full dataset; the TA clarified the supplied target, timing and imputation conventions and permitted use of the premerged file on November 24, 2026. These clarifications do not change the executed pipeline.**
 
 ## Setup and replication
 
@@ -16,13 +16,13 @@ We prepare a common U.S. security-month panel for predicting one-month-ahead cor
 
 | Order | Notebook | Main purpose / reproducible outputs |
 |---|---|---|
-| 00 | `00_source_provenance_checks.ipynb` | Source metadata, candidate merge keys, event-history and company-level sensitivity diagnostics (`provenance_*.csv`). Standalone. |
-| 01 | `01_data_exploration.ipynb` | Raw schema, coverage, target comparison and feature distributions (displayed in notebook). Standalone. |
-| 02 | `02_part_I_distress_definition.ipynb` | Target and at-risk validation, merge diagnostics, sample attrition, censoring and lifecycle tables; `part_I_panel.parquet`. |
-| 03 | `03_part_II_feature_engineering.ipynb` | CHS construction checks, feature coverage and selection, preprocessing parameters, manifest, missingness and economic diagnostic tables; `part_II_features.parquet`; `global_feature_coverage.png`. |
-| 04 | `04_part_III_chronological_design.ipynb` | Chronological splits, common modeling panel, split statistics, environment and preprocessing verification; `part_III_model_panel.parquet`. |
+| 00 | `00_source_provenancechecks.ipynb` | Source metadata, candidate merge keys, event-history and company-level sensitivity diagnostics (`provenance_*.csv`). Standalone. |
+| 01 | `01_dataexploration.ipynb` | Raw schema, coverage, target comparison and feature distributions (displayed in notebook). Standalone. |
+| 02 | `02_part_I_distressdefinition.ipynb` | Target and at-risk validation, merge diagnostics, sample attrition, censoring and lifecycle tables; `part_I_panel.parquet`. |
+| 03 | `03_part_II_featureengineering.ipynb` | CHS construction checks, feature coverage and selection, preprocessing parameters, manifest, missingness and economic diagnostic tables; `part_II_features.parquet`; `global_feature_coverage.png`. |
+| 04 | `04_part_III_chronologicaldesign.ipynb` | Chronological splits, common modeling panel, split statistics, environment and preprocessing verification; `part_III_model_panel.parquet`. |
 
-The notebooks automatically create `data/processed/`, `outputs/tables/` and `outputs/figures/` as needed. Re-run the relevant notebook to reproduce its tables and figures. Saved notebook outputs are cleared in the repository copies to avoid exposing individual financial records or local paths.
+The notebooks automatically create `data/processed/`, `outputs/tables/` and `outputs/figures/` as needed. Re-run the relevant notebook to reproduce its tables and figures. Some checked-in notebooks retain outputs from a previous run. Clear outputs before sharing notebooks that display sample rows or local paths.
 
 Run the synthetic-data unit tests from the repository root:
 ```bash
@@ -95,6 +95,24 @@ X_val, y_val = development_xy('validation')
 - During development, choose features, hyperparameters, thresholds and calibration using only pre-2004 data. Refit preprocessing and any scaling within each training fold for rolling-origin validation. Do not tune on test outcomes.
 - After the design is frozen, refit preprocessing and the selected model on the 1,636,175 eligible labeled development rows through December 2003. Part III's `DESIGN_FROZEN` is deliberately `False`; set it to `True` only when the team is ready to generate final preprocessing parameters. This does not fit model coefficients. Fit/choose calibration and thresholds using pre-2004 out-of-sample development predictions; document their transfer to the refitted model. Do not calibrate on final-test labels or in-sample fitted probabilities.
 - Generate probabilities for all eligible test rows; evaluate competing models on the same labeled rows. Preserve PERMNO, PERMCO, feature month, forecast month, target, split and each model's probability for the final prediction file. Account for within-company dependence when conducting inference. The representative-security diagnostic is available as a basis for robustness testing.
+
+## Reproduce the baseline and robustness checks
+
+After running Parts I–III, install the modeling dependencies from the repository root:
+
+```bash
+python -m pip install -r requirements-baseline.txt
+```
+
+Open `05_chs_baseline_evaluation.ipynb` from the repository root and run all cells. Set `HANDOFF_ROOT` in the first code cell if you generated the Parts I–III files elsewhere.
+
+The baseline uses unpenalized pooled logit. It selects an F1 threshold on 1996–2003 forecasts, then refits the preprocessing and model through December 2003 and carries the threshold into the 2004–2024 test. The calibration plots evaluate the original forecast probabilities. Coefficient inference uses standard errors clustered by PERMCO, with PERMNO as a fallback when PERMCO is missing. Risk capture ranks securities within each forecast month.
+
+The notebook exports test predictions, validation and test metrics, development fit statistics, calibration and annual rates, risk-decile feature profiles, regime comparisons, and a complete-case SIGMA sensitivity analysis. The complete-case comparison uses the same test rows for both models, and its prediction column is missing where that specification cannot score the observation.
+
+## Reproduce the Part VI model comparison
+
+Run `06_part_VI_alternative_models.ipynb` after Notebook 05 from the repository root. It compares the CHS benchmark with CHS-only ridge and ridge on all 45 predictors. It chooses regularization by validation log loss and freezes the threshold on validation before refitting through 2003. The notebook exports the validation grid, test comparison, and combined predictions under `outputs/baseline`.
 
 ## Source construction and limitations
 
